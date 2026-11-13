@@ -13,19 +13,27 @@ export function outerRectCenters(count = 16): { x: number; y: number }[] {
   const left = PAD + cell / 2
   const bottom = H - PAD - cell / 2
   const right = W - PAD - cell / 2
-  const inner = W - PAD * 2 - cell
-  // 5 top, 3 right, 5 bottom, 3 left = 16
-  const topN = 5
+  const spanX = right - left
+  const spanY = bottom - top
+  // 5 top + 3 right + 5 bottom + 3 left = 16 (esquinas solo en top/bottom)
+  const edgeN = 5
   const sideN = 3
-  const stepTop = inner / (topN - 1)
-  const stepSide = (H - PAD * 2 - cell) / (sideN + 1)
+  const stepX = spanX / (edgeN - 1)
 
   const pts: { x: number; y: number }[] = []
-  for (let i = 0; i < topN; i++) pts.push({ x: left + i * stepTop, y: top })
-  for (let i = 1; i <= sideN; i++) pts.push({ x: right, y: top + i * stepSide })
-  for (let i = 1; i < topN; i++) pts.push({ x: right - i * stepTop, y: bottom })
-  for (let i = 1; i <= sideN; i++) pts.push({ x: left, y: bottom - i * stepSide })
-  return pts.slice(0, count)
+  for (let i = 0; i < edgeN; i++) pts.push({ x: left + i * stepX, y: top })
+  for (let i = 1; i <= sideN; i++) {
+    pts.push({ x: right, y: top + (i / (sideN + 1)) * spanY })
+  }
+  for (let i = 0; i < edgeN; i++) pts.push({ x: right - i * stepX, y: bottom })
+  for (let i = 1; i <= sideN; i++) {
+    pts.push({ x: left, y: bottom - (i / (sideN + 1)) * spanY })
+  }
+
+  if (pts.length !== count) {
+    throw new Error(`outerRectCenters: expected ${count}, got ${pts.length}`)
+  }
+  return pts
 }
 
 /** Carrera de la rata — círculo interior. */

@@ -352,7 +352,8 @@ export class BoardStage {
 
   private buildRatTrack(): void {
     RAT_RACE.forEach((sq, i) => {
-      const c = this.ratCenters[i]!
+      const c = this.ratCenters[i]
+      if (!c) return
       const node = this.makeSquare(sq.kind, INNER_CELL, true)
       node.x = c.x
       node.y = c.y
@@ -365,7 +366,8 @@ export class BoardStage {
 
   private buildOuterTrack(): void {
     FAST_TRACK.forEach((sq, i) => {
-      const c = this.outerCenters[i]!
+      const c = this.outerCenters[i]
+      if (!c) return
       const node = this.makeSquare(sq.kind, OUTER_CELL, false)
       node.x = c.x
       node.y = c.y

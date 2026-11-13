@@ -23,12 +23,16 @@ export function GameCanvas({ player, lastRoll, phase, justEscaped = false, onAni
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const stage = new BoardStage(canvas, (value) => onAnimRef.current?.(value))
-    stageRef.current = stage
-
-    return () => {
-      stage.destroy()
-      stageRef.current = null
+    try {
+      const stage = new BoardStage(canvas, (value) => onAnimRef.current?.(value))
+      stageRef.current = stage
+      return () => {
+        stage.destroy()
+        stageRef.current = null
+      }
+    } catch (err) {
+      console.error('BoardStage failed to init', err)
+      return
     }
   }, [])
 
