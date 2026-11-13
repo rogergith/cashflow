@@ -16,7 +16,15 @@ interface Actions {
   onReset: () => void
 }
 
-export function ActionPanel({ state, actions }: { state: GameState; actions: Actions }) {
+export function ActionPanel({
+  state,
+  actions,
+  animating = false,
+}: {
+  state: GameState
+  actions: Actions
+  animating?: boolean
+}) {
   if (state.phase === 'career') {
     return (
       <section className="panel actions">
@@ -173,19 +181,30 @@ export function ActionPanel({ state, actions }: { state: GameState; actions: Act
   return (
     <section className="panel actions highlight-panel">
       <p className="phase-badge">Tu turno · #{state.turn || 1}</p>
-      <h2>Tira el dado</h2>
+      <h2>{animating ? 'Moviendo ficha…' : 'Tira el dado'}</h2>
       <p className="muted">
-        Avanzas por el tablero. Las casillas verdes te pagan; las azules ofrecen activos.
-        {charity > 0 ? ` Caridad activa: dado 1–12 (${charity} turno${charity === 1 ? '' : 's'}).` : ''}
+        {animating
+          ? 'Espera a que la ficha termine de saltar por el tablero.'
+          : 'Avanzas por el tablero. Las casillas verdes te pagan; las azules ofrecen activos.'}
+        {!animating && charity > 0
+          ? ` Caridad activa: dado 1–12 (${charity} turno${charity === 1 ? '' : 's'}).`
+          : ''}
       </p>
       <div className="btn-row">
-        <button type="button" className="btn primary btn-lg pulse" onClick={actions.onRoll} autoFocus>
-          🎲 Tirar dado
+        <button
+          type="button"
+          className={`btn primary btn-lg ${animating ? '' : 'pulse'}`}
+          onClick={actions.onRoll}
+          disabled={animating}
+          autoFocus
+        >
+          {animating ? 'Animando…' : 'Tirar dado'}
         </button>
         <button
           type="button"
           className="btn"
           onClick={actions.onLoan}
+          disabled={animating}
           title="Recibes $1,000 y pagas $100 extra cada mes"
         >
           Préstamo +$1,000

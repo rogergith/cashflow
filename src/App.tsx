@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { ActionPanel } from './components/ActionPanel'
 import { Coach } from './components/Coach'
 import { GameCanvas } from './components/GameCanvas'
@@ -56,12 +56,14 @@ function reducer(state: GameState, action: Action): GameState {
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+  const [animating, setAnimating] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.key !== ' ' && e.key !== 'Enter') return
       e.preventDefault()
+      if (animating) return
 
       if (state.phase === 'playing') dispatch({ type: 'roll' })
       else if (state.phase === 'doodad') dispatch({ type: 'doodad' })
@@ -71,7 +73,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state])
+  }, [state, animating])
 
   const latest = state.log[0]
 
@@ -89,16 +91,24 @@ export default function App() {
 
       <main className="layout">
         <div className="board-col">
-          <GameCanvas player={state.player} lastRoll={state.lastRoll} />
+          <GameCanvas
+            player={state.player}
+            lastRoll={state.lastRoll}
+            phase={state.phase}
+            onAnimatingChange={setAnimating}
+          />
           <Legend />
         </div>
 
         <aside className="side-col">
           <ActionPanel
             state={state}
+            animating={animating}
             actions={{
               onPickCareer: (id) => dispatch({ type: 'career', id }),
-              onRoll: () => dispatch({ type: 'roll' }),
+              onRoll: () => {
+                if (!animating) dispatch({ type: 'roll' })
+              },
               onAcceptDeal: () => dispatch({ type: 'accept' }),
               onDeclineDeal: () => dispatch({ type: 'decline' }),
               onResolveDoodad: () => dispatch({ type: 'doodad' }),

@@ -1,37 +1,57 @@
 import { useEffect, useRef } from 'react'
-import { CANVAS_SIZE, drawBoard } from '../game/drawBoard'
+import { BoardStage } from '../game/createjs/BoardStage'
+import { CANVAS_SIZE } from '../game/createjs/geometry'
 import { passiveIncome, totalExpenses } from '../game/finance'
-import type { PlayerState } from '../game/types'
+import type { Phase, PlayerState } from '../game/types'
 
 interface Props {
   player: PlayerState | null
   lastRoll: number | null
+  phase: Phase
+  onAnimatingChange?: (animating: boolean) => void
 }
 
-export function GameCanvas({ player, lastRoll }: Props) {
-  const ref = useRef<HTMLCanvasElement>(null)
+export function GameCanvas({ player, lastRoll, phase, onAnimatingChange }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const stageRef = useRef<BoardStage | null>(null)
+  const onAnimRef = useRef(onAnimatingChange)
+  onAnimRef.current = onAnimatingChange
 
   useEffect(() => {
-    const canvas = ref.current
+    const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+
+    const stage = new BoardStage(canvas, (value) => onAnimRef.current?.(value))
+    stageRef.current = stage
+
+    return () => {
+      stage.destroy()
+      stageRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
 
     let hint: string | undefined
     if (player) {
       const gap = Math.max(0, totalExpenses(player) - passiveIncome(player))
-      hint =
-        gap === 0
-          ? '¡Meta alcanzada!'
-          : `Te faltan $${gap.toLocaleString('en-US')}/mes`
+      hint = gap === 0 ? '¡Meta alcanzada!' : `Te faltan $${gap.toLocaleString('en-US')}/mes`
     }
 
-    drawBoard(ctx, player, lastRoll, hint)
-  }, [player, lastRoll])
+    stage.sync({
+      position: player?.position ?? null,
+      lastRoll,
+      centerHint: hint,
+      phase,
+      animateMove: true,
+    })
+  }, [player, lastRoll, phase])
 
   return (
     <canvas
-      ref={ref}
+      ref={canvasRef}
       width={CANVAS_SIZE.width}
       height={CANVAS_SIZE.height}
       className="game-canvas"

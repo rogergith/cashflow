@@ -1,7 +1,7 @@
 # Cashflow Lab
 
 Sandbox educativo de finanzas personales (1 jugador, local).  
-Stack: **React + Vite + Canvas**.
+Stack: **React + Vite + CreateJS** (EaselJS / TweenJS) para el tablero animado.
 
 Juego **original** e independiente. No afiliado a Rich Dad ni a CASHFLOW®.
 
