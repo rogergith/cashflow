@@ -1,12 +1,12 @@
 import { BOARD, squareColor } from './board'
-import type { PlayerState } from './types'
+import type { BoardSquare, PlayerState } from './types'
 
 const W = 720
 const H = 720
 const PAD = 36
 const CELL = 78
 
-const SHORT_LABEL: Record<string, string> = {
+const SHORT_LABEL: Record<BoardSquare['kind'], string> = {
   start: 'Cobro',
   payday: 'Cobro',
   opportunity: 'Deal',
@@ -110,10 +110,14 @@ export function drawBoard(
       ctx.stroke()
     }
 
+    drawSquareIcon(ctx, sq.kind, c.x, c.y - 10, 14)
+
     ctx.fillStyle = '#fff'
-    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif'
+    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(SHORT_LABEL[sq.kind] ?? sq.label, c.x, c.y + 4)
+    ctx.textBaseline = 'middle'
+    ctx.fillText(SHORT_LABEL[sq.kind], c.x, c.y + 18)
+    ctx.textBaseline = 'alphabetic'
   })
 
   if (player) {
@@ -121,16 +125,180 @@ export function drawBoard(
     if (!c) return
     ctx.beginPath()
     ctx.fillStyle = '#fbbf24'
-    ctx.arc(c.x, c.y + 22, 11, 0, Math.PI * 2)
+    ctx.arc(c.x + 22, c.y - 22, 11, 0, Math.PI * 2)
     ctx.fill()
     ctx.strokeStyle = '#78350f'
     ctx.lineWidth = 2
     ctx.stroke()
     ctx.fillStyle = '#78350f'
-    ctx.font = '700 10px "Segoe UI", system-ui, sans-serif'
+    ctx.font = '700 9px "Segoe UI", system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('TÚ', c.x, c.y + 26)
+    ctx.textBaseline = 'middle'
+    ctx.fillText('TÚ', c.x + 22, c.y - 21)
+    ctx.textBaseline = 'alphabetic'
   }
+}
+
+function drawSquareIcon(
+  ctx: CanvasRenderingContext2D,
+  kind: BoardSquare['kind'],
+  x: number,
+  y: number,
+  s: number,
+): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.strokeStyle = '#fff'
+  ctx.fillStyle = '#fff'
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  switch (kind) {
+    case 'start':
+    case 'payday':
+      drawCoinIcon(ctx, s)
+      break
+    case 'opportunity':
+      drawDealIcon(ctx, s)
+      break
+    case 'doodad':
+      drawSpendIcon(ctx, s)
+      break
+    case 'market':
+      drawMarketIcon(ctx, s)
+      break
+    case 'charity':
+      drawHeartIcon(ctx, s)
+      break
+    case 'downsized':
+      drawFiredIcon(ctx, s)
+      break
+    case 'baby':
+      drawChildIcon(ctx, s)
+      break
+    default:
+      break
+  }
+
+  ctx.restore()
+}
+
+/** Moneda / cobro */
+function drawCoinIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  ctx.beginPath()
+  ctx.arc(0, 0, s, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(0, 0, s * 0.72, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.font = `700 ${Math.round(s * 1.1)}px "Segoe UI", system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('$', 0, 1)
+}
+
+/** Maletín + flecha arriba = oportunidad de inversión */
+function drawDealIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  const w = s * 1.5
+  const h = s * 1.05
+  roundRect(ctx, -w / 2, -h / 2 + 2, w, h, 3)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-w * 0.22, -h / 2 + 2)
+  ctx.lineTo(-w * 0.22, -h / 2 - 4)
+  ctx.lineTo(w * 0.22, -h / 2 - 4)
+  ctx.lineTo(w * 0.22, -h / 2 + 2)
+  ctx.stroke()
+  // plus
+  ctx.beginPath()
+  ctx.moveTo(0, -2)
+  ctx.lineTo(0, 6)
+  ctx.moveTo(-4, 2)
+  ctx.lineTo(4, 2)
+  ctx.stroke()
+}
+
+/** Bolsa / ticket con signo − */
+function drawSpendIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  const w = s * 1.35
+  const h = s * 1.45
+  ctx.beginPath()
+  ctx.moveTo(-w / 2, -h / 2 + 4)
+  ctx.lineTo(-w / 2 + 3, h / 2)
+  ctx.lineTo(w / 2 - 3, h / 2)
+  ctx.lineTo(w / 2, -h / 2 + 4)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-w * 0.28, -h / 2 + 4)
+  ctx.quadraticCurveTo(0, -h / 2 - 6, w * 0.28, -h / 2 + 4)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-5, 2)
+  ctx.lineTo(5, 2)
+  ctx.stroke()
+}
+
+/** Etiqueta de precio / venta */
+function drawMarketIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.2, -s)
+  ctx.lineTo(s, -s)
+  ctx.lineTo(s, s * 0.15)
+  ctx.lineTo(0, s)
+  ctx.lineTo(-s, s * 0.15)
+  ctx.lineTo(-s, -s * 0.2)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(s * 0.35, -s * 0.45, 2.5, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.font = `700 ${Math.round(s * 0.9)}px "Segoe UI", system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('$', -2, 2)
+}
+
+/** Corazón = donar */
+function drawHeartIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  const scale = s / 12
+  ctx.beginPath()
+  ctx.moveTo(0, 4 * scale)
+  ctx.bezierCurveTo(0, 4 * scale, -12 * scale, -4 * scale, -12 * scale, -10 * scale)
+  ctx.bezierCurveTo(-12 * scale, -18 * scale, 0, -18 * scale, 0, -10 * scale)
+  ctx.bezierCurveTo(0, -18 * scale, 12 * scale, -18 * scale, 12 * scale, -10 * scale)
+  ctx.bezierCurveTo(12 * scale, -4 * scale, 0, 4 * scale, 0, 4 * scale)
+  ctx.closePath()
+  ctx.fill()
+}
+
+/** Puerta / X = despido */
+function drawFiredIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  roundRect(ctx, -s * 0.7, -s, s * 1.4, s * 2, 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(s * 0.25, 0, 2.2, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.35, -s * 0.35)
+  ctx.lineTo(s * 0.05, s * 0.35)
+  ctx.moveTo(s * 0.05, -s * 0.35)
+  ctx.lineTo(-s * 0.35, s * 0.35)
+  ctx.stroke()
+}
+
+/** Silueta de niño */
+function drawChildIcon(ctx: CanvasRenderingContext2D, s: number): void {
+  ctx.beginPath()
+  ctx.arc(0, -s * 0.55, s * 0.38, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.55, s * 0.85)
+  ctx.quadraticCurveTo(-s * 0.55, s * 0.05, 0, s * 0.05)
+  ctx.quadraticCurveTo(s * 0.55, s * 0.05, s * 0.55, s * 0.85)
+  ctx.closePath()
+  ctx.fill()
 }
 
 function roundRect(
