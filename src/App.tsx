@@ -126,7 +126,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {state.player ? <Statement player={state.player} /> : null}
+          {state.player ? <Statement player={state.player} phase={state.phase} /> : null}
 
           <details className="panel log-details">
             <summary>Historial completo</summary>

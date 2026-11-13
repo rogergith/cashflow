@@ -8,16 +8,19 @@ import {
 } from '@createjs/easeljs'
 import { Ease, Tween } from '@createjs/tweenjs'
 import { BOARD, BOARD_SIZE, squareColor } from '../board'
+import type { MoodState } from '../mood'
 import type { Phase } from '../types'
 import { playLandFx, playWinFx } from './fx'
 import { CELL, H, PAD, W, pathSteps, squareCenters } from './geometry'
 import { SHORT_LABEL, drawIcon } from './icons'
+import { MoodFace } from './MoodFace'
 
 export interface BoardSyncProps {
   position: number | null
   lastRoll: number | null
   centerHint?: string
   phase: Phase
+  mood: MoodState
   animateMove?: boolean
 }
 
@@ -38,6 +41,7 @@ export class BoardStage {
   private hintText: Text
   private rollText: Text
   private rollLabel: Text
+  private moodFace: MoodFace
   private particles: { shape: Shape; vx: number; vy: number }[] = []
 
   private displayedPos: number | null = null
@@ -45,6 +49,7 @@ export class BoardStage {
   private wonPlayed = false
   private tickHandle: unknown = null
   private onAnimatingChange: ((value: boolean) => void) | null
+  private lastMood: MoodState | null = null
 
   constructor(canvas: HTMLCanvasElement, onAnimatingChange?: (value: boolean) => void) {
     this.onAnimatingChange = onAnimatingChange ?? null
@@ -59,32 +64,43 @@ export class BoardStage {
     this.tokenLayer.addChild(this.token)
     this.token.visible = false
 
-    this.titleText = new Text('CASHFLOW LAB', '700 26px Segoe UI, system-ui, sans-serif', '#e2e8f0')
+    this.moodFace = new MoodFace()
+    this.moodFace.root.x = W / 2
+    this.moodFace.root.y = H / 2 - 118
+
+    this.titleText = new Text('CASHFLOW LAB', '700 22px Segoe UI, system-ui, sans-serif', '#e2e8f0')
     this.titleText.textAlign = 'center'
     this.titleText.x = W / 2
-    this.titleText.y = H / 2 - 70
+    this.titleText.y = H / 2 - 28
 
-    this.metaText = new Text('Meta: ingreso pasivo ≥ gastos', '400 13px Segoe UI, system-ui, sans-serif', '#94a3b8')
+    this.metaText = new Text('Meta: ingreso pasivo ≥ gastos', '400 12px Segoe UI, system-ui, sans-serif', '#94a3b8')
     this.metaText.textAlign = 'center'
     this.metaText.x = W / 2
-    this.metaText.y = H / 2 - 42
+    this.metaText.y = H / 2 - 8
 
-    this.hintText = new Text('', '600 14px Segoe UI, system-ui, sans-serif', '#fbbf24')
+    this.hintText = new Text('', '600 13px Segoe UI, system-ui, sans-serif', '#fbbf24')
     this.hintText.textAlign = 'center'
     this.hintText.x = W / 2
-    this.hintText.y = H / 2 - 16
+    this.hintText.y = H / 2 + 12
 
-    this.rollText = new Text('', '700 52px Segoe UI, system-ui, sans-serif', '#38bdf8')
+    this.rollText = new Text('', '700 44px Segoe UI, system-ui, sans-serif', '#38bdf8')
     this.rollText.textAlign = 'center'
     this.rollText.x = W / 2
-    this.rollText.y = H / 2 + 28
+    this.rollText.y = H / 2 + 48
 
-    this.rollLabel = new Text('', '400 12px Segoe UI, system-ui, sans-serif', '#64748b')
+    this.rollLabel = new Text('', '400 11px Segoe UI, system-ui, sans-serif', '#64748b')
     this.rollLabel.textAlign = 'center'
     this.rollLabel.x = W / 2
-    this.rollLabel.y = H / 2 + 72
+    this.rollLabel.y = H / 2 + 86
 
-    this.hud.addChild(this.titleText, this.metaText, this.hintText, this.rollText, this.rollLabel)
+    this.hud.addChild(
+      this.moodFace.root,
+      this.titleText,
+      this.metaText,
+      this.hintText,
+      this.rollText,
+      this.rollLabel,
+    )
 
     Ticker.framerate = 60
     this.tickHandle = Ticker.on('tick', () => {
@@ -98,7 +114,10 @@ export class BoardStage {
   }
 
   sync(props: BoardSyncProps): void {
-    const { position, lastRoll, centerHint, phase, animateMove = true } = props
+    const { position, lastRoll, centerHint, phase, mood, animateMove = true } = props
+
+    this.lastMood = mood
+    if (!this.animating) this.moodFace.setMood(mood)
 
     this.hintText.text = centerHint ?? (position == null ? 'Elige una profesión a la derecha →' : '')
     this.hintText.color = position == null ? '#64748b' : '#fbbf24'
@@ -170,6 +189,12 @@ export class BoardStage {
 
   private async animateToken(from: number, to: number): Promise<void> {
     this.setAnimating(true)
+    this.moodFace.setMood({
+      id: 'hopeful',
+      score: 62,
+      label: 'Expectante',
+      detail: 'Los dados corren… ¿qué trae este turno?',
+    })
     const steps = pathSteps(from, to, BOARD_SIZE)
 
     for (const step of steps) {
@@ -196,6 +221,7 @@ export class BoardStage {
       this.pulseSquare(to)
     }
 
+    if (this.lastMood) this.moodFace.setMood(this.lastMood)
     this.setAnimating(false)
   }
 

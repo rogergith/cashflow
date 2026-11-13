@@ -5,9 +5,10 @@ import {
   paydayAmount,
   totalExpenses,
 } from '../game/finance'
-import type { PlayerState } from '../game/types'
+import { computeMood } from '../game/mood'
+import type { Phase, PlayerState } from '../game/types'
 
-export function Statement({ player }: { player: PlayerState }) {
+export function Statement({ player, phase }: { player: PlayerState; phase: Phase }) {
   const passive = passiveIncome(player)
   const expenses = totalExpenses(player)
   const payday = paydayAmount(player)
@@ -15,6 +16,7 @@ export function Statement({ player }: { player: PlayerState }) {
   const worth = netWorth(player)
   const gap = Math.max(0, expenses - passive)
   const wonReady = passive >= expenses
+  const mood = computeMood(player, phase)
 
   return (
     <section className="panel statement">
@@ -25,6 +27,15 @@ export function Statement({ player }: { player: PlayerState }) {
           {player.children > 0 ? ` · ${player.children} hijo${player.children === 1 ? '' : 's'}` : ''}
         </p>
       </header>
+
+      <div className="mood-chip">
+        <span className="mood-chip-label">Ánimo</span>
+        <strong>{mood.label}</strong>
+        <span className="muted">{mood.detail}</span>
+        <div className="progress-bar" aria-hidden>
+          <div className="progress-fill" style={{ width: `${mood.score}%` }} />
+        </div>
+      </div>
 
       <div className="goal-box">
         <div className="goal-equation">

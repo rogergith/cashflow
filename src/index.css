@@ -346,6 +346,24 @@ button:disabled {
   color: var(--danger) !important;
 }
 
+.mood-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.mood-chip-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .goal-box {
   background: #0b1220;
   border: 1px solid #1f2937;

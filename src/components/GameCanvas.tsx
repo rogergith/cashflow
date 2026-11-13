@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { BoardStage } from '../game/createjs/BoardStage'
 import { CANVAS_SIZE } from '../game/createjs/geometry'
 import { passiveIncome, totalExpenses } from '../game/finance'
+import { computeMood } from '../game/mood'
 import type { Phase, PlayerState } from '../game/types'
 
 interface Props {
@@ -45,6 +46,7 @@ export function GameCanvas({ player, lastRoll, phase, onAnimatingChange }: Props
       lastRoll,
       centerHint: hint,
       phase,
+      mood: computeMood(player, phase),
       animateMove: true,
     })
   }, [player, lastRoll, phase])
