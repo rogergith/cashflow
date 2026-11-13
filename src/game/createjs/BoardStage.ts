@@ -65,33 +65,34 @@ export class BoardStage {
     this.token.visible = false
 
     this.moodFace = new MoodFace()
-    this.moodFace.root.x = W / 2
-    this.moodFace.root.y = H / 2 - 118
+    this.moodFace.root.x = W / 2 - 100
+    this.moodFace.root.y = H / 2 + 4
 
-    this.titleText = new Text('CASHFLOW LAB', '700 22px Segoe UI, system-ui, sans-serif', '#e2e8f0')
-    this.titleText.textAlign = 'center'
-    this.titleText.x = W / 2
-    this.titleText.y = H / 2 - 28
+    this.titleText = new Text('CASHFLOW LAB', '700 18px Segoe UI, system-ui, sans-serif', '#e2e8f0')
+    this.titleText.textAlign = 'left'
+    this.titleText.x = W / 2 + 8
+    this.titleText.y = H / 2 - 78
 
-    this.metaText = new Text('Meta: ingreso pasivo ≥ gastos', '400 12px Segoe UI, system-ui, sans-serif', '#94a3b8')
-    this.metaText.textAlign = 'center'
-    this.metaText.x = W / 2
-    this.metaText.y = H / 2 - 8
+    this.metaText = new Text('Meta: ingreso pasivo ≥ gastos', '400 11px Segoe UI, system-ui, sans-serif', '#94a3b8')
+    this.metaText.textAlign = 'left'
+    this.metaText.x = W / 2 + 8
+    this.metaText.y = H / 2 - 56
 
-    this.hintText = new Text('', '600 13px Segoe UI, system-ui, sans-serif', '#fbbf24')
-    this.hintText.textAlign = 'center'
-    this.hintText.x = W / 2
-    this.hintText.y = H / 2 + 12
+    this.hintText = new Text('', '600 12px Segoe UI, system-ui, sans-serif', '#fbbf24')
+    this.hintText.textAlign = 'left'
+    this.hintText.maxWidth = 210
+    this.hintText.x = W / 2 + 8
+    this.hintText.y = H / 2 - 34
 
-    this.rollText = new Text('', '700 44px Segoe UI, system-ui, sans-serif', '#38bdf8')
-    this.rollText.textAlign = 'center'
-    this.rollText.x = W / 2
-    this.rollText.y = H / 2 + 48
+    this.rollText = new Text('', '700 46px Segoe UI, system-ui, sans-serif', '#38bdf8')
+    this.rollText.textAlign = 'left'
+    this.rollText.x = W / 2 + 8
+    this.rollText.y = H / 2 + 18
 
     this.rollLabel = new Text('', '400 11px Segoe UI, system-ui, sans-serif', '#64748b')
-    this.rollLabel.textAlign = 'center'
-    this.rollLabel.x = W / 2
-    this.rollLabel.y = H / 2 + 86
+    this.rollLabel.textAlign = 'left'
+    this.rollLabel.x = W / 2 + 8
+    this.rollLabel.y = H / 2 + 56
 
     this.hud.addChild(
       this.moodFace.root,
@@ -193,7 +194,7 @@ export class BoardStage {
       id: 'hopeful',
       score: 62,
       label: 'Expectante',
-      detail: 'Los dados corren… ¿qué trae este turno?',
+      detail: 'Traje en alerta: los dados deciden lo que se avecina…',
     })
     const steps = pathSteps(from, to, BOARD_SIZE)
 

@@ -108,7 +108,8 @@ export function ActionPanel({
 
         {!can ? (
           <p className="inline-tip warn-tip">
-            Te faltan {money(shortfall)}. Puedes pedir {loansNeeded} préstamo(s) de $1,000 y luego comprar, o pasar.
+            Te faltan {money(shortfall)}. Puedes pedir {loansNeeded} préstamo(s): cada uno suma $1,000 de
+            efectivo y +$100/mes de gasto.
           </p>
         ) : (
           <p className="inline-tip">
@@ -127,8 +128,13 @@ export function ActionPanel({
             {can ? 'Sí, comprar' : 'No te alcanza'}
           </button>
           {!can ? (
-            <button type="button" className="btn" onClick={actions.onLoan}>
-              Pedir préstamo +$1,000
+            <button
+              type="button"
+              className="btn"
+              onClick={actions.onLoan}
+              title="Sumas $1,000 a tu efectivo. Pagas $100 extra cada mes."
+            >
+              Pedir +$1,000 (cuesta $100/mes)
             </button>
           ) : null}
           <button type="button" className="btn" onClick={actions.onDeclineDeal}>
@@ -205,9 +211,9 @@ export function ActionPanel({
           className="btn"
           onClick={actions.onLoan}
           disabled={animating}
-          title="Recibes $1,000 y pagas $100 extra cada mes"
+          title="Efectivo +$1,000 ahora. Gastos +$100 cada mes (10% de interés)."
         >
-          Préstamo +$1,000
+          Préstamo +$1,000 (interés $100/mes)
         </button>
         <button type="button" className="btn ghost" onClick={actions.onReset}>
           Reiniciar

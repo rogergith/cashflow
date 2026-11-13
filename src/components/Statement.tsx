@@ -94,7 +94,7 @@ export function Statement({ player, phase }: { player: PlayerState; phase: Phase
                 <li key={l.id}>
                   <strong>{l.name}</strong>
                   <span>
-                    −{money(l.monthlyPayment)}/mes · debe {money(l.balance)}
+                    Debes {money(l.balance)} · te cobra {money(l.monthlyPayment)}/mes
                   </span>
                 </li>
               ))}

@@ -46,6 +46,7 @@ declare module '@createjs/easeljs' {
     color: string
     textAlign: string
     textBaseline: string
+    maxWidth: number | null
   }
 
   export class Shadow {
@@ -58,6 +59,7 @@ declare module '@createjs/easeljs' {
     beginStroke(color: string): Graphics
     setStrokeStyle(thickness: number, caps?: number | string, joints?: number | string): Graphics
     drawCircle(x: number, y: number, radius: number): Graphics
+    drawEllipse(x: number, y: number, w: number, h: number): Graphics
     drawRect(x: number, y: number, w: number, h: number): Graphics
     drawRoundRect(x: number, y: number, w: number, h: number, radius: number): Graphics
     moveTo(x: number, y: number): Graphics

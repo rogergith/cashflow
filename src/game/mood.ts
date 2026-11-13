@@ -24,7 +24,7 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'waiting',
       score: 50,
       label: 'En espera',
-      detail: 'Elige una profesión para empezar tu historia financiera.',
+      detail: 'El traje listo. Elige profesión y empieza el circuito.',
     }
   }
 
@@ -33,7 +33,7 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'euphoric',
       score: 100,
       label: 'Libre',
-      detail: 'Tu ingreso pasivo cubre tu vida. Saliste del circuito.',
+      detail: 'Traje de victoria: el pasivo ya paga tu vida.',
     }
   }
 
@@ -52,18 +52,28 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
   if (player.children >= 2) score -= 4
   if (player.assets.length >= 3) score += 6
 
-  if (phase === 'doodad') score -= 8
-  if (phase === 'deal') score += 2
-  if (phase === 'market') score += 1
+  // Situaciones que se avecinan / están encima
+  if (phase === 'doodad') score -= 10
+  if (phase === 'deal') score += 4
+  if (phase === 'market') score += 2
 
   score = Math.max(0, Math.min(100, Math.round(score)))
+
+  const situation =
+    phase === 'doodad'
+      ? 'Se avecina un gasto: el traje se tensa.'
+      : phase === 'deal'
+        ? 'Oportunidad delante: el traje se afila.'
+        : phase === 'market'
+          ? 'Mercado abierto: ¿vendes o aguantas?'
+          : null
 
   if (score >= 90 || ratio >= 1) {
     return {
       id: 'euphoric',
       score,
       label: 'Eufórico',
-      detail: 'El flujo te favorece: estás cerca o ya en la meta.',
+      detail: situation ?? 'Traje premium: el flujo te sonríe.',
     }
   }
   if (score >= 72) {
@@ -71,7 +81,7 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'happy',
       score,
       label: 'Tranquilo',
-      detail: 'Buen colchón y el pasivo va creciendo.',
+      detail: situation ?? 'Traje en orden y buen colchón.',
     }
   }
   if (score >= 58) {
@@ -79,7 +89,7 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'hopeful',
       score,
       label: 'Esperanzado',
-      detail: 'Vas mejorando: sigue buscando activos con flujo.',
+      detail: situation ?? 'El traje apunta a más activos.',
     }
   }
   if (score >= 42) {
@@ -87,7 +97,7 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'neutral',
       score,
       label: 'Neutro',
-      detail: 'Aún dependes del sueldo. Cada deal cuenta.',
+      detail: situation ?? 'Traje de oficina: aún vives del sueldo.',
     }
   }
   if (score >= 25) {
@@ -95,13 +105,13 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'worried',
       score,
       label: 'Preocupado',
-      detail: 'El payday aprieta o el efectivo anda justo.',
+      detail: situation ?? 'El traje se arruga: el payday aprieta.',
     }
   }
   return {
     id: 'stressed',
     score,
     label: 'Estresado',
-    detail: 'Efectivo bajo o negativo: el flujo te está ganando.',
+    detail: situation ?? 'Traje al límite: el efectivo no alcanza.',
   }
 }

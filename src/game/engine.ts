@@ -329,23 +329,26 @@ export function skipMarket(state: GameState): GameState {
 
 export function takeBankLoan(state: GameState, amount: number): GameState {
   if (!state.player || amount <= 0) return state
-  const rounded = Math.ceil(amount / 1000) * 1000
-  const monthly = Math.round(rounded * 0.1)
+  // Principal en múltiplos de $1,000; interés = 10% del principal cada mes.
+  const principal = Math.ceil(amount / 1000) * 1000
+  const monthlyInterest = Math.round(principal * 0.1)
+  const cashBefore = state.player.cash
+  const cashAfter = cashBefore + principal
   const player: PlayerState = {
     ...state.player,
-    cash: state.player.cash + rounded,
+    cash: cashAfter,
     liabilities: [
       ...state.player.liabilities,
       {
         id: uid('bank'),
-        name: `Préstamo banco $${rounded}`,
-        balance: rounded,
-        monthlyPayment: monthly,
+        name: `Préstamo banco $${principal}`,
+        balance: principal,
+        monthlyPayment: monthlyInterest,
       },
     ],
   }
   return pushLog(withPlayer(state, player), [
-    `Préstamo bancario +$${rounded}. Nuevo gasto mensual: $${monthly}.`,
+    `Préstamo: +$${principal} en efectivo ($${cashBefore} → $${cashAfter}). Interés: +$${monthlyInterest}/mes en gastos (no es el monto prestado).`,
   ])
 }
 
