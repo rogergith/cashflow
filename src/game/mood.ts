@@ -33,7 +33,20 @@ export function computeMood(player: PlayerState | null, phase: Phase): MoodState
       id: 'euphoric',
       score: 100,
       label: 'Libre',
-      detail: 'Traje de victoria: el pasivo ya paga tu vida.',
+      detail: 'Traje de victoria: lograste tu sueño.',
+    }
+  }
+
+  if (player.track === 'fast_track') {
+    const need = Math.max(0, player.dream.cost - player.cash)
+    return {
+      id: need === 0 ? 'euphoric' : 'happy',
+      score: need === 0 ? 95 : 78,
+      label: need === 0 ? 'Listo para el sueño' : 'En el Fast Track',
+      detail:
+        need === 0
+          ? `Puedes comprar: ${player.dream.title}.`
+          : `Persiguiendo ${player.dream.title}. Faltan $${need}.`,
     }
   }
 

@@ -1,6 +1,7 @@
-import { BOARD, BOARD_SIZE } from './board'
+import { BIG_DEALS, drawDeal, drawDoodad, drawMarket, pick } from './cards'
 import { CAREERS, careerStartingLiabilities } from './careers'
-import { drawDeal, drawDoodad, drawMarket } from './cards'
+import { pickDream } from './dreams'
+import { getBoard, getBoardSize } from './board'
 import { hasEscapedRatRace, paydayAmount, totalExpenses } from './finance'
 import type {
   Asset,
@@ -10,6 +11,7 @@ import type {
   LogEntry,
   MarketCard,
   PlayerState,
+  Track,
 } from './types'
 
 let logSeq = 0
@@ -36,8 +38,9 @@ export function createInitialState(): GameState {
     pendingDeal: null,
     pendingDoodad: null,
     pendingMarket: null,
-    log: [entry('Elige una profesión para empezar Cashflow Lab.')],
+    log: [entry('Elige una profesión. Empezarás en la Carrera de la Rata.')],
     turn: 0,
+    justEscaped: false,
   }
 }
 
@@ -49,6 +52,7 @@ export function startWithCareer(state: GameState, careerId: string, name = 'Tú'
   const career = CAREERS.find((c) => c.id === careerId)
   if (!career) return state
 
+  const dream = pickDream()
   const player: PlayerState = {
     name,
     career,
@@ -58,13 +62,15 @@ export function startWithCareer(state: GameState, careerId: string, name = 'Tú'
     assets: [],
     liabilities: careerStartingLiabilities(career),
     charityTurnsLeft: 0,
+    track: 'rat_race',
+    dream,
   }
 
   return pushLog(
-    { ...state, phase: 'playing', player },
+    { ...state, phase: 'playing', player, justEscaped: false },
     [
-      `Empiezas como ${career.title}. Efectivo: $${career.savings}.`,
-      'Meta: ingreso pasivo ≥ gastos mensuales.',
+      `Empiezas como ${career.title} en la Carrera de la Rata. Efectivo: $${career.savings}.`,
+      `Tu sueño: ${dream.title} ($${dream.cost}). Primero: ingreso pasivo ≥ gastos.`,
     ],
   )
 }
@@ -73,59 +79,80 @@ function withPlayer(state: GameState, player: PlayerState, patch: Partial<GameSt
   return { ...state, player, ...patch }
 }
 
-function applyPayday(player: PlayerState, times: number): { player: PlayerState; notes: string[] } {
+function applyPayday(player: PlayerState, times: number, multiplier = 1): { player: PlayerState; notes: string[] } {
   let next = player
   const notes: string[] = []
   for (let i = 0; i < times; i++) {
-    const pay = paydayAmount(next)
+    const pay = Math.round(paydayAmount(next) * multiplier)
     next = { ...next, cash: next.cash + pay }
     notes.push(`Payday: ${pay >= 0 ? '+' : ''}$${pay}`)
   }
   return { player: next, notes }
 }
 
-function countPaydaysPassed(from: number, steps: number): number {
+function countPaydaysPassed(track: Track, from: number, steps: number): number {
+  const board = getBoard(track)
+  const size = board.length
   let count = 0
   for (let s = 1; s <= steps; s++) {
-    const idx = (from + s) % BOARD_SIZE
-    const square = BOARD[idx]!
-    if (square.kind === 'payday' || square.kind === 'start') count += 1
+    const idx = (from + s) % size
+    const square = board[idx]!
+    if (square.kind === 'payday' || square.kind === 'start' || square.kind === 'cashflow_day') count += 1
   }
   return count
 }
 
-function maybeWin(state: GameState): GameState {
+/** Tras resolver una casilla: si escapó de la rata → Fast Track; si no → fin de turno. */
+function afterSquareResolved(state: GameState): GameState {
   if (!state.player || state.phase === 'won') return state
-  if (!hasEscapedRatRace(state.player)) return state
-  return pushLog(
-    { ...state, phase: 'won' },
-    ['¡Saliste del circuito! Ingreso pasivo cubre tus gastos. Victoria.'],
-  )
+
+  if (state.player.track === 'rat_race' && hasEscapedRatRace(state.player)) {
+    const player: PlayerState = {
+      ...state.player,
+      track: 'fast_track',
+      position: 0,
+    }
+    return pushLog(
+      withPlayer({ ...state, phase: 'end_turn', justEscaped: true, pendingDeal: null, pendingDoodad: null, pendingMarket: null }, player),
+      [
+        '¡Saliste de la Carrera de la Rata! Ingreso pasivo ≥ gastos.',
+        `Entras al Fast Track. Persigue tu sueño: ${player.dream.title} ($${player.dream.cost}).`,
+      ],
+    )
+  }
+
+  return { ...state, phase: 'end_turn', justEscaped: false }
 }
 
 export function rollDice(state: GameState): GameState {
   if (state.phase !== 'playing' || !state.player) return state
 
+  const track = state.player.track
+  const board = getBoard(track)
+  const size = getBoardSize(track)
   const max = state.player.charityTurnsLeft > 0 ? 12 : 6
   const roll = 1 + Math.floor(Math.random() * max)
   const from = state.player.position
-  const to = (from + roll) % BOARD_SIZE
-  const paydays = countPaydaysPassed(from, roll)
+  const to = (from + roll) % size
+  const paydays = countPaydaysPassed(track, from, roll)
 
   let player: PlayerState = { ...state.player, position: to }
-  const notes: string[] = [`Tiraste ${roll}.`]
+  const notes: string[] = [
+    track === 'rat_race' ? `Carrera de la Rata · tiraste ${roll}.` : `Fast Track · tiraste ${roll}.`,
+  ]
 
   if (player.charityTurnsLeft > 0) {
     player = { ...player, charityTurnsLeft: player.charityTurnsLeft - 1 }
   }
 
   if (paydays > 0) {
-    const paid = applyPayday(player, paydays)
+    const mult = track === 'fast_track' ? 2 : 1
+    const paid = applyPayday(player, paydays, mult)
     player = paid.player
-    notes.push(...paid.notes)
+    notes.push(...paid.notes.map((n) => (mult > 1 ? `${n} (×2 Fast Track)` : n)))
   }
 
-  const square = BOARD[to]!
+  const square = board[to]!
   notes.push(`Caíste en: ${square.label}.`)
 
   let next: GameState = withPlayer(
@@ -137,13 +164,14 @@ export function rollDice(state: GameState): GameState {
       pendingDoodad: null,
       pendingMarket: null,
       phase: 'playing',
+      justEscaped: false,
     },
     player,
   )
 
   switch (square.kind) {
     case 'opportunity': {
-      const deal = drawDeal()
+      const deal = track === 'fast_track' ? pick(BIG_DEALS) : drawDeal()
       next = pushLog(
         { ...next, phase: 'deal', pendingDeal: deal },
         [...notes, `Carta: ${deal.title} (${deal.kind === 'small' ? 'pequeña' : 'grande'}).`],
@@ -152,9 +180,10 @@ export function rollDice(state: GameState): GameState {
     }
     case 'doodad': {
       const doodad = drawDoodad()
+      const cost = track === 'fast_track' ? doodad.cost * 3 : doodad.cost
       next = pushLog(
-        { ...next, phase: 'doodad', pendingDoodad: doodad },
-        [...notes, `Gasto: ${doodad.title} ($${doodad.cost}).`],
+        { ...next, phase: 'doodad', pendingDoodad: { ...doodad, cost } },
+        [...notes, `Gasto: ${doodad.title} ($${cost}).`],
       )
       return next
     }
@@ -165,6 +194,23 @@ export function rollDice(state: GameState): GameState {
         [...notes, `Mercado: ${market.title}.`],
       )
       return next
+    }
+    case 'dream': {
+      const dream = player.dream
+      if (player.cash >= dream.cost) {
+        player = { ...player, cash: player.cash - dream.cost }
+        return pushLog(
+          withPlayer({ ...next, phase: 'won' }, player),
+          [...notes, `¡Compraste tu sueño: ${dream.title} por $${dream.cost}! Victoria.`],
+        )
+      }
+      notes.push(`Tu sueño (${dream.title}) cuesta $${dream.cost}. Te faltan $${dream.cost - player.cash}.`)
+      next = withPlayer(next, player)
+      break
+    }
+    case 'cashflow_day': {
+      // already counted in paydays with ×2; if landed exactly and count was 0 somehow, still pay once
+      break
     }
     case 'charity': {
       const cost = Math.round(player.career.salary * 0.1)
@@ -203,12 +249,10 @@ export function rollDice(state: GameState): GameState {
   }
 
   next = pushLog(next, notes)
-
   if (player.cash < 0) {
-    next = pushLog(next, ['Efectivo negativo: usa préstamo bancario si lo necesitas.'])
+    next = pushLog(next, ['Efectivo negativo: pide préstamo antes de cerrar el turno.'])
   }
-
-  return maybeWin(next)
+  return afterSquareResolved(next)
 }
 
 export function acceptDeal(state: GameState): GameState {
@@ -217,9 +261,11 @@ export function acceptDeal(state: GameState): GameState {
   const need = deal.asset.downPayment
 
   if (state.player.cash < need) {
-    return pushLog(
-      { ...state, phase: 'playing', pendingDeal: null },
-      [`No tienes $${need} de enganche. Oportunidad perdida.`],
+    return afterSquareResolved(
+      pushLog(
+        { ...state, phase: 'playing', pendingDeal: null },
+        [`No tienes $${need} de enganche. Oportunidad perdida.`],
+      ),
     )
   }
 
@@ -244,7 +290,7 @@ export function acceptDeal(state: GameState): GameState {
     liabilities,
   }
 
-  return maybeWin(
+  return afterSquareResolved(
     pushLog(withPlayer({ ...state, phase: 'playing', pendingDeal: null }, player), [
       `Compraste ${asset.name}. Flujo: $${asset.cashflow}/mes. Enganche: $${need}.`,
     ]),
@@ -253,9 +299,11 @@ export function acceptDeal(state: GameState): GameState {
 
 export function declineDeal(state: GameState): GameState {
   if (state.phase !== 'deal' || !state.pendingDeal) return state
-  return pushLog(
-    { ...state, phase: 'playing', pendingDeal: null },
-    [`Pasaste: ${state.pendingDeal.title}.`],
+  return afterSquareResolved(
+    pushLog(
+      { ...state, phase: 'playing', pendingDeal: null },
+      [`Pasaste: ${state.pendingDeal.title}.`],
+    ),
   )
 }
 
@@ -263,9 +311,11 @@ export function resolveDoodad(state: GameState): GameState {
   if (state.phase !== 'doodad' || !state.player || !state.pendingDoodad) return state
   const cost = state.pendingDoodad.cost
   const player = { ...state.player, cash: state.player.cash - cost }
-  return pushLog(
-    withPlayer({ ...state, phase: 'playing', pendingDoodad: null }, player),
-    [`Pagaste $${cost} por ${state.pendingDoodad.title}.`],
+  return afterSquareResolved(
+    pushLog(
+      withPlayer({ ...state, phase: 'playing', pendingDoodad: null }, player),
+      [`Pagaste $${cost} por ${state.pendingDoodad.title}.`],
+    ),
   )
 }
 
@@ -281,9 +331,11 @@ export function sellMatchingAssets(state: GameState): GameState {
   const matches = state.player.assets.filter((a) => assetMatches(a, market))
 
   if (matches.length === 0) {
-    return pushLog(
-      { ...state, phase: 'playing', pendingMarket: null },
-      ['No tienes activos que coincidan con esta carta de mercado.'],
+    return afterSquareResolved(
+      pushLog(
+        { ...state, phase: 'playing', pendingMarket: null },
+        ['No tienes activos que coincidan con esta carta de mercado.'],
+      ),
     )
   }
 
@@ -312,7 +364,7 @@ export function sellMatchingAssets(state: GameState): GameState {
   }
 
   const player: PlayerState = { ...state.player, cash, assets, liabilities }
-  return maybeWin(
+  return afterSquareResolved(
     pushLog(withPlayer({ ...state, phase: 'playing', pendingMarket: null }, player), [
       `Vendiste: ${soldNames.join(', ')}.`,
     ]),
@@ -321,15 +373,16 @@ export function sellMatchingAssets(state: GameState): GameState {
 
 export function skipMarket(state: GameState): GameState {
   if (state.phase !== 'market') return state
-  return pushLog(
-    { ...state, phase: 'playing', pendingMarket: null },
-    ['No vendiste nada en el mercado.'],
+  return afterSquareResolved(
+    pushLog(
+      { ...state, phase: 'playing', pendingMarket: null },
+      ['No vendiste nada en el mercado.'],
+    ),
   )
 }
 
 export function takeBankLoan(state: GameState, amount: number): GameState {
   if (!state.player || amount <= 0) return state
-  // Principal en múltiplos de $1,000; interés = 10% del principal cada mes.
   const principal = Math.ceil(amount / 1000) * 1000
   const monthlyInterest = Math.round(principal * 0.1)
   const cashBefore = state.player.cash
@@ -348,8 +401,33 @@ export function takeBankLoan(state: GameState, amount: number): GameState {
     ],
   }
   return pushLog(withPlayer(state, player), [
-    `Préstamo: +$${principal} en efectivo ($${cashBefore} → $${cashAfter}). Interés: +$${monthlyInterest}/mes en gastos (no es el monto prestado).`,
+    `Préstamo: +$${principal} en efectivo ($${cashBefore} → $${cashAfter}). Interés: +$${monthlyInterest}/mes.`,
   ])
+}
+
+/** Paga el préstamo bancario más reciente (o el primero bank-*). */
+export function repayBankLoan(state: GameState): GameState {
+  if (!state.player) return state
+  const bank = [...state.player.liabilities].reverse().find((l) => l.id.startsWith('bank'))
+  if (!bank) {
+    return pushLog(state, ['No tienes préstamos bancarios para pagar.'])
+  }
+  if (state.player.cash < bank.balance) {
+    return pushLog(state, [`Necesitas $${bank.balance} para liquidar ${bank.name}.`])
+  }
+  const player: PlayerState = {
+    ...state.player,
+    cash: state.player.cash - bank.balance,
+    liabilities: state.player.liabilities.filter((l) => l.id !== bank.id),
+  }
+  return pushLog(withPlayer(state, player), [
+    `Liquidaste ${bank.name}. −$${bank.balance} efectivo. −$${bank.monthlyPayment}/mes en gastos.`,
+  ])
+}
+
+export function endTurn(state: GameState): GameState {
+  if (state.phase !== 'end_turn') return state
+  return pushLog({ ...state, phase: 'playing', justEscaped: false }, ['Turno cerrado. Puedes tirar de nuevo.'])
 }
 
 export function resetGame(): GameState {

@@ -3,16 +3,17 @@ import { BoardStage } from '../game/createjs/BoardStage'
 import { CANVAS_SIZE } from '../game/createjs/geometry'
 import { passiveIncome, totalExpenses } from '../game/finance'
 import { computeMood } from '../game/mood'
-import type { Phase, PlayerState } from '../game/types'
+import type { Phase, PlayerState, Track } from '../game/types'
 
 interface Props {
   player: PlayerState | null
   lastRoll: number | null
   phase: Phase
+  justEscaped?: boolean
   onAnimatingChange?: (animating: boolean) => void
 }
 
-export function GameCanvas({ player, lastRoll, phase, onAnimatingChange }: Props) {
+export function GameCanvas({ player, lastRoll, phase, justEscaped = false, onAnimatingChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stageRef = useRef<BoardStage | null>(null)
   const onAnimRef = useRef(onAnimatingChange)
@@ -35,10 +36,16 @@ export function GameCanvas({ player, lastRoll, phase, onAnimatingChange }: Props
     const stage = stageRef.current
     if (!stage) return
 
+    const track: Track = player?.track ?? 'rat_race'
     let hint: string | undefined
     if (player) {
-      const gap = Math.max(0, totalExpenses(player) - passiveIncome(player))
-      hint = gap === 0 ? '¡Meta alcanzada!' : `Te faltan $${gap.toLocaleString('en-US')}/mes`
+      if (track === 'fast_track') {
+        const need = Math.max(0, player.dream.cost - player.cash)
+        hint = need === 0 ? `Puedes comprar: ${player.dream.title}` : `Sueño: faltan $${need.toLocaleString('en-US')}`
+      } else {
+        const gap = Math.max(0, totalExpenses(player) - passiveIncome(player))
+        hint = gap === 0 ? '¡Listo para salir de la rata!' : `Rata: faltan $${gap.toLocaleString('en-US')}/mes`
+      }
     }
 
     stage.sync({
@@ -47,9 +54,11 @@ export function GameCanvas({ player, lastRoll, phase, onAnimatingChange }: Props
       centerHint: hint,
       phase,
       mood: computeMood(player, phase),
+      track,
       animateMove: true,
+      justEscaped,
     })
-  }, [player, lastRoll, phase])
+  }, [player, lastRoll, phase, justEscaped])
 
   return (
     <canvas

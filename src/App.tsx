@@ -8,6 +8,8 @@ import {
   acceptDeal,
   createInitialState,
   declineDeal,
+  endTurn,
+  repayBankLoan,
   resetGame,
   resolveDoodad,
   rollDice,
@@ -27,6 +29,8 @@ type Action =
   | { type: 'sell' }
   | { type: 'skipMarket' }
   | { type: 'loan' }
+  | { type: 'repay' }
+  | { type: 'endTurn' }
   | { type: 'reset' }
 
 function reducer(state: GameState, action: Action): GameState {
@@ -47,6 +51,10 @@ function reducer(state: GameState, action: Action): GameState {
       return skipMarket(state)
     case 'loan':
       return takeBankLoan(state, 1000)
+    case 'repay':
+      return repayBankLoan(state)
+    case 'endTurn':
+      return endTurn(state)
     case 'reset':
       return resetGame()
     default:
@@ -66,6 +74,7 @@ export default function App() {
       if (animating) return
 
       if (state.phase === 'playing') dispatch({ type: 'roll' })
+      else if (state.phase === 'end_turn') dispatch({ type: 'endTurn' })
       else if (state.phase === 'doodad') dispatch({ type: 'doodad' })
       else if (state.phase === 'deal' && state.player && state.pendingDeal) {
         if (state.player.cash >= state.pendingDeal.asset.downPayment) dispatch({ type: 'accept' })
@@ -82,7 +91,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="brand">Cashflow Lab</p>
-          <p className="tagline">Aprende cashflow jugando · 1 jugador local</p>
+          <p className="tagline">Carrera de la Rata → Fast Track · 1 jugador</p>
         </div>
         <p className="disclaimer">Juego educativo original. No afiliado a Rich Dad ni CASHFLOW®.</p>
       </header>
@@ -95,6 +104,7 @@ export default function App() {
             player={state.player}
             lastRoll={state.lastRoll}
             phase={state.phase}
+            justEscaped={state.justEscaped}
             onAnimatingChange={setAnimating}
           />
           <Legend />
@@ -115,6 +125,8 @@ export default function App() {
               onSellMarket: () => dispatch({ type: 'sell' }),
               onSkipMarket: () => dispatch({ type: 'skipMarket' }),
               onLoan: () => dispatch({ type: 'loan' }),
+              onRepay: () => dispatch({ type: 'repay' }),
+              onEndTurn: () => dispatch({ type: 'endTurn' }),
               onReset: () => dispatch({ type: 'reset' }),
             }}
           />

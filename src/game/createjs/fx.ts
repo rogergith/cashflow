@@ -11,10 +11,14 @@ export function playLandFx(
   switch (kind) {
     case 'start':
     case 'payday':
+    case 'cashflow_day':
       spawnCoins(fxLayer, x, y)
       break
     case 'opportunity':
       spawnBurst(fxLayer, x, y, '#7dd3fc', 8)
+      break
+    case 'dream':
+      spawnBurst(fxLayer, x, y, '#fbbf24', 10)
       break
     case 'doodad':
       spawnFlash(fxLayer, x, y, '#fdba74')

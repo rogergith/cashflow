@@ -7,14 +7,15 @@ Juego **original** e independiente. No afiliado a Rich Dad ni a CASHFLOW®.
 
 ## Cómo jugar
 
-1. Elige una profesión.
-2. Tira el dado y avanza por el tablero.
-3. En **Payday** cobras salario + ingreso pasivo − gastos.
-4. En **Oportunidad** puedes comprar activos (pequeños/grandes).
-5. En **Gasto** pagas doodads; en **Mercado** puedes vender.
-6. Ganas cuando el **ingreso pasivo ≥ gastos mensuales**.
+1. Elige una profesión (y recibes un **sueño**).
+2. Empiezas en la **Carrera de la Rata** (círculo interior).
+3. Tira el dado → resuelve casilla → **fin de turno** (pedir/pagar préstamo) → terminar.
+4. **Payday**: cobras salario + pasivo − gastos.
+5. **Deal**: compra activos hasta que **pasivo ≥ gastos**.
+6. Al escapar entras al **Fast Track** (marco exterior).
+7. Ganas al caer en **Sueño** con efectivo suficiente para comprarlo.
 
-Préstamo bancario: +$1,000 con 10% mensual en gastos.
+Préstamo: +$1,000 efectivo, +$100/mes de interés.
 
 ## Scripts
 

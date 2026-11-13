@@ -10,19 +10,21 @@ export const SHORT_LABEL: Record<BoardSquare['kind'], string> = {
   charity: 'Donar',
   downsized: 'Despido',
   baby: 'Hijo',
+  cashflow_day: 'CF Day',
+  dream: 'Sueño',
 }
 
-export function drawIcon(g: Graphics, kind: BoardSquare['kind'], s = 14): void {
+export function drawIcon(g: Graphics, kind: BoardSquare['kind'], s = 12): void {
   g.setStrokeStyle(2).beginStroke('#fff')
 
   switch (kind) {
     case 'start':
     case 'payday':
+    case 'cashflow_day':
       g.drawCircle(0, 0, s)
       g.drawCircle(0, 0, s * 0.72)
       g.endStroke()
       g.beginFill('#fff')
-      // dollar approximated as small rects
       g.drawRect(-1.5, -s * 0.55, 3, s * 1.1)
       g.drawRect(-s * 0.35, -s * 0.25, s * 0.7, 3)
       g.drawRect(-s * 0.35, s * 0.05, s * 0.7, 3)
@@ -95,6 +97,22 @@ export function drawIcon(g: Graphics, kind: BoardSquare['kind'], s = 14): void {
         .quadraticCurveTo(-s * 0.55, s * 0.05, 0, s * 0.05)
         .quadraticCurveTo(s * 0.55, s * 0.05, s * 0.55, s * 0.85)
         .closePath()
+      g.endFill()
+      break
+    case 'dream':
+      g.endStroke()
+      g.beginFill('#fff')
+      // simple star
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5
+        const x = Math.cos(a) * s
+        const y = Math.sin(a) * s
+        if (i === 0) g.moveTo(x, y)
+        else g.lineTo(x, y)
+        const a2 = a + Math.PI / 5
+        g.lineTo(Math.cos(a2) * s * 0.45, Math.sin(a2) * s * 0.45)
+      }
+      g.closePath()
       g.endFill()
       break
     default:

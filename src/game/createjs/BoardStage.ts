@@ -7,11 +7,11 @@ import {
   Ticker,
 } from '@createjs/easeljs'
 import { Ease, Tween } from '@createjs/tweenjs'
-import { BOARD, BOARD_SIZE, squareColor } from '../board'
+import { FAST_TRACK, RAT_RACE, getBoardSize, squareColor } from '../board'
 import type { MoodState } from '../mood'
-import type { Phase } from '../types'
+import type { Phase, Track } from '../types'
 import { playLandFx, playWinFx } from './fx'
-import { CELL, H, PAD, W, pathSteps, squareCenters } from './geometry'
+import { H, INNER_CELL, OUTER_CELL, W, outerRectCenters, pathSteps, ratRaceCenters } from './geometry'
 import { SHORT_LABEL, drawIcon } from './icons'
 import { MoodFace } from './MoodFace'
 
@@ -21,21 +21,29 @@ export interface BoardSyncProps {
   centerHint?: string
   phase: Phase
   mood: MoodState
+  track: Track
   animateMove?: boolean
+  justEscaped?: boolean
 }
 
 export class BoardStage {
   private stage: Stage
   private ambient = new Container()
-  private board = new Container()
+  private outerBoard = new Container()
+  private innerBoard = new Container()
   private tokenLayer = new Container()
   private fx = new Container()
   private hud = new Container()
 
-  private centers = squareCenters()
-  private squareNodes: Container[] = []
-  private glowNodes: Shape[] = []
+  private ratCenters = ratRaceCenters(RAT_RACE.length)
+  private outerCenters = outerRectCenters(FAST_TRACK.length)
+  private ratNodes: Container[] = []
+  private outerNodes: Container[] = []
+  private ratGlow: Shape[] = []
+  private outerGlow: Shape[] = []
+
   private token: Container
+  private trackLabel: Text
   private titleText: Text
   private metaText: Text
   private hintText: Text
@@ -45,8 +53,10 @@ export class BoardStage {
   private particles: { shape: Shape; vx: number; vy: number }[] = []
 
   private displayedPos: number | null = null
+  private displayedTrack: Track = 'rat_race'
   private animating = false
   private wonPlayed = false
+  private escapePlayed = false
   private tickHandle: unknown = null
   private onAnimatingChange: ((value: boolean) => void) | null
   private lastMood: MoodState | null = null
@@ -54,54 +64,63 @@ export class BoardStage {
   constructor(canvas: HTMLCanvasElement, onAnimatingChange?: (value: boolean) => void) {
     this.onAnimatingChange = onAnimatingChange ?? null
     this.stage = new Stage(canvas)
-
-    this.stage.addChild(this.ambient, this.board, this.tokenLayer, this.fx, this.hud)
+    this.stage.addChild(this.ambient, this.outerBoard, this.innerBoard, this.tokenLayer, this.fx, this.hud)
 
     this.buildBackground()
     this.buildAmbientParticles()
-    this.buildSquares()
+    this.buildOuterTrack()
+    this.buildRatTrack()
     this.token = this.buildToken()
     this.tokenLayer.addChild(this.token)
     this.token.visible = false
 
     this.moodFace = new MoodFace()
-    this.moodFace.root.x = W / 2 - 100
-    this.moodFace.root.y = H / 2 + 4
+    this.moodFace.root.x = W / 2
+    this.moodFace.root.y = H / 2 + 8
+    this.moodFace.root.scaleX = this.moodFace.root.scaleY = 0.72
 
-    this.titleText = new Text('CASHFLOW LAB', '700 18px Segoe UI, system-ui, sans-serif', '#e2e8f0')
-    this.titleText.textAlign = 'left'
-    this.titleText.x = W / 2 + 8
-    this.titleText.y = H / 2 - 78
+    this.trackLabel = new Text('CARRERA DE LA RATA', '800 13px Segoe UI, system-ui, sans-serif', '#fbbf24')
+    this.trackLabel.textAlign = 'center'
+    this.trackLabel.x = W / 2
+    this.trackLabel.y = H / 2 - 92
 
-    this.metaText = new Text('Meta: ingreso pasivo ≥ gastos', '400 11px Segoe UI, system-ui, sans-serif', '#94a3b8')
-    this.metaText.textAlign = 'left'
-    this.metaText.x = W / 2 + 8
+    this.titleText = new Text('CASHFLOW LAB', '700 16px Segoe UI, system-ui, sans-serif', '#e2e8f0')
+    this.titleText.textAlign = 'center'
+    this.titleText.x = W / 2
+    this.titleText.y = H / 2 - 74
+
+    this.metaText = new Text('Pasivo ≥ gastos → Fast Track', '400 11px Segoe UI, system-ui, sans-serif', '#94a3b8')
+    this.metaText.textAlign = 'center'
+    this.metaText.x = W / 2
     this.metaText.y = H / 2 - 56
 
-    this.hintText = new Text('', '600 12px Segoe UI, system-ui, sans-serif', '#fbbf24')
-    this.hintText.textAlign = 'left'
-    this.hintText.maxWidth = 210
-    this.hintText.x = W / 2 + 8
-    this.hintText.y = H / 2 - 34
+    this.hintText = new Text('', '600 11px Segoe UI, system-ui, sans-serif', '#fbbf24')
+    this.hintText.textAlign = 'center'
+    this.hintText.maxWidth = 200
+    this.hintText.x = W / 2
+    this.hintText.y = H / 2 - 40
 
-    this.rollText = new Text('', '700 46px Segoe UI, system-ui, sans-serif', '#38bdf8')
-    this.rollText.textAlign = 'left'
-    this.rollText.x = W / 2 + 8
-    this.rollText.y = H / 2 + 18
+    this.rollText = new Text('', '700 36px Segoe UI, system-ui, sans-serif', '#38bdf8')
+    this.rollText.textAlign = 'center'
+    this.rollText.x = W / 2
+    this.rollText.y = H / 2 + 78
 
-    this.rollLabel = new Text('', '400 11px Segoe UI, system-ui, sans-serif', '#64748b')
-    this.rollLabel.textAlign = 'left'
-    this.rollLabel.x = W / 2 + 8
-    this.rollLabel.y = H / 2 + 56
+    this.rollLabel = new Text('', '400 10px Segoe UI, system-ui, sans-serif', '#64748b')
+    this.rollLabel.textAlign = 'center'
+    this.rollLabel.x = W / 2
+    this.rollLabel.y = H / 2 + 108
 
     this.hud.addChild(
       this.moodFace.root,
+      this.trackLabel,
       this.titleText,
       this.metaText,
       this.hintText,
       this.rollText,
       this.rollLabel,
     )
+
+    this.setOuterDimmed(true)
 
     Ticker.framerate = 60
     this.tickHandle = Ticker.on('tick', () => {
@@ -115,12 +134,25 @@ export class BoardStage {
   }
 
   sync(props: BoardSyncProps): void {
-    const { position, lastRoll, centerHint, phase, mood, animateMove = true } = props
+    const {
+      position,
+      lastRoll,
+      centerHint,
+      phase,
+      mood,
+      track,
+      animateMove = true,
+      justEscaped = false,
+    } = props
 
     this.lastMood = mood
     if (!this.animating) this.moodFace.setMood(mood)
 
-    this.hintText.text = centerHint ?? (position == null ? 'Elige una profesión a la derecha →' : '')
+    this.trackLabel.text = track === 'fast_track' ? 'FAST TRACK' : 'CARRERA DE LA RATA'
+    this.trackLabel.color = track === 'fast_track' ? '#34d399' : '#fbbf24'
+    this.setOuterDimmed(track === 'rat_race')
+
+    this.hintText.text = centerHint ?? (position == null ? 'Elige profesión →' : '')
     this.hintText.color = position == null ? '#64748b' : '#fbbf24'
 
     if (lastRoll != null) {
@@ -130,7 +162,7 @@ export class BoardStage {
         this.rollText.scaleX = this.rollText.scaleY = 0.4
         this.rollText.alpha = 0
         Tween.get(this.rollText, { override: true })
-          .to({ scaleX: 1.15, scaleY: 1.15, alpha: 1 }, 180, Ease.quadOut)
+          .to({ scaleX: 1.12, scaleY: 1.12, alpha: 1 }, 180, Ease.quadOut)
           .to({ scaleX: 1, scaleY: 1 }, 120, Ease.quadInOut)
       }
     } else {
@@ -138,12 +170,19 @@ export class BoardStage {
       this.rollLabel.text = ''
     }
 
+    if (justEscaped && !this.escapePlayed) {
+      this.escapePlayed = true
+      playWinFx(this.fx, W / 2, H / 2)
+      this.trackLabel.scaleX = this.trackLabel.scaleY = 0.6
+      Tween.get(this.trackLabel, { override: true })
+        .to({ scaleX: 1.2, scaleY: 1.2 }, 220, Ease.quadOut)
+        .to({ scaleX: 1, scaleY: 1 }, 180, Ease.quadInOut)
+    }
+    if (!justEscaped && track === 'rat_race') this.escapePlayed = false
+
     if (phase === 'won' && !this.wonPlayed) {
       this.wonPlayed = true
       playWinFx(this.fx, W / 2, H / 2)
-      Tween.get(this.titleText, { override: true })
-        .to({ scaleX: 1.08, scaleY: 1.08 }, 220, Ease.quadOut)
-        .to({ scaleX: 1, scaleY: 1 }, 220, Ease.quadInOut)
     }
     if (phase !== 'won') this.wonPlayed = false
 
@@ -152,19 +191,26 @@ export class BoardStage {
       this.setAnimating(false)
       this.token.visible = false
       this.displayedPos = null
-      this.setActiveSquare(null)
+      this.setActiveSquare(null, track)
       return
     }
 
     this.token.visible = true
 
+    const trackChanged = this.displayedTrack !== track
+    if (trackChanged) {
+      this.displayedTrack = track
+      this.snapToken(position, track)
+      return
+    }
+
     if (this.displayedPos == null || !animateMove || this.displayedPos === position) {
-      this.snapToken(position)
+      this.snapToken(position, track)
       return
     }
 
     if (this.animating) return
-    void this.animateToken(this.displayedPos, position)
+    void this.animateToken(this.displayedPos, position, track)
   }
 
   destroy(): void {
@@ -178,56 +224,67 @@ export class BoardStage {
     this.onAnimatingChange?.(value)
   }
 
-  private snapToken(position: number): void {
-    const c = this.centers[position]
+  private centersFor(track: Track) {
+    return track === 'fast_track' ? this.outerCenters : this.ratCenters
+  }
+
+  private snapToken(position: number, track: Track): void {
+    const c = this.centersFor(track)[position]
     if (!c) return
     Tween.removeTweens(this.token)
     this.token.x = c.x
     this.token.y = c.y
     this.displayedPos = position
-    this.setActiveSquare(position)
+    this.displayedTrack = track
+    this.setActiveSquare(position, track)
   }
 
-  private async animateToken(from: number, to: number): Promise<void> {
+  private async animateToken(from: number, to: number, track: Track): Promise<void> {
     this.setAnimating(true)
     this.moodFace.setMood({
       id: 'hopeful',
       score: 62,
       label: 'Expectante',
-      detail: 'Traje en alerta: los dados deciden lo que se avecina…',
+      detail: track === 'rat_race' ? 'En la rata… ¿qué sale?' : 'Fast Track: persiguiendo el sueño…',
     })
-    const steps = pathSteps(from, to, BOARD_SIZE)
+
+    const size = getBoardSize(track)
+    const centers = this.centersFor(track)
+    const steps = pathSteps(from, to, size)
+    const board = track === 'fast_track' ? FAST_TRACK : RAT_RACE
 
     for (const step of steps) {
-      const c = this.centers[step]
+      const c = centers[step]
       if (!c) continue
-      this.setActiveSquare(step)
+      this.setActiveSquare(step, track)
       await tweenPromise(
-        Tween.get(this.token, { override: true }).to(
-          { x: c.x, y: c.y - 14 },
-          90,
-          Ease.quadOut,
-        ),
+        Tween.get(this.token, { override: true }).to({ x: c.x, y: c.y - 12 }, 80, Ease.quadOut),
       )
       await tweenPromise(
-        Tween.get(this.token, { override: true }).to({ x: c.x, y: c.y }, 90, Ease.bounceOut),
+        Tween.get(this.token, { override: true }).to({ x: c.x, y: c.y }, 80, Ease.bounceOut),
       )
       this.displayedPos = step
     }
 
-    const land = BOARD[to]
-    const c = this.centers[to]
+    const land = board[to]
+    const c = centers[to]
     if (land && c) {
       playLandFx(this.fx, land.kind, c.x, c.y)
-      this.pulseSquare(to)
+      this.pulseSquare(to, track)
     }
 
     if (this.lastMood) this.moodFace.setMood(this.lastMood)
     this.setAnimating(false)
   }
 
-  private setActiveSquare(index: number | null): void {
-    this.glowNodes.forEach((g, i) => {
+  private setActiveSquare(index: number | null, track: Track): void {
+    const glows = track === 'fast_track' ? this.outerGlow : this.ratGlow
+    const other = track === 'fast_track' ? this.ratGlow : this.outerGlow
+    other.forEach((g) => {
+      g.visible = false
+      Tween.removeTweens(g)
+    })
+    glows.forEach((g, i) => {
       g.visible = index === i
       if (index === i) {
         g.alpha = 0.9
@@ -240,49 +297,45 @@ export class BoardStage {
     })
   }
 
-  private pulseSquare(index: number): void {
-    const node = this.squareNodes[index]
+  private pulseSquare(index: number, track: Track): void {
+    const nodes = track === 'fast_track' ? this.outerNodes : this.ratNodes
+    const node = nodes[index]
     if (!node) return
     Tween.get(node, { override: true })
-      .to({ scaleX: 1.08, scaleY: 1.08 }, 120, Ease.quadOut)
+      .to({ scaleX: 1.1, scaleY: 1.1 }, 120, Ease.quadOut)
       .to({ scaleX: 1, scaleY: 1 }, 160, Ease.quadInOut)
+  }
+
+  private setOuterDimmed(dim: boolean): void {
+    this.outerBoard.alpha = dim ? 0.35 : 1
+    this.innerBoard.alpha = dim ? 1 : 0.55
   }
 
   private buildBackground(): void {
     const bg = new Shape()
-    bg.graphics.beginFill('#0f172a').drawRect(0, 0, W, H)
+    bg.graphics.beginFill('#0b1220').drawRect(0, 0, W, H)
+    const ring = new Shape()
+    ring.graphics.beginStroke('rgba(251,191,36,0.15)').setStrokeStyle(2).drawCircle(W / 2, H / 2, 168)
     const veil = new Shape()
-    veil.graphics.beginFill('rgba(30,58,95,0.35)').drawCircle(W * 0.2, H * 0.15, 220)
-    const veil2 = new Shape()
-    veil2.graphics.beginFill('rgba(20,83,45,0.2)').drawCircle(W * 0.85, H * 0.2, 180)
-
+    veil.graphics.beginFill('rgba(30,58,95,0.28)').drawCircle(W * 0.2, H * 0.15, 200)
     const center = new Shape()
-    center.graphics
-      .beginFill('rgba(15,23,42,0.92)')
-      .drawRoundRect(
-        PAD + CELL * 0.7,
-        PAD + CELL * 0.7,
-        W - (PAD + CELL * 0.7) * 2,
-        H - (PAD + CELL * 0.7) * 2,
-        18,
-      )
-
-    this.ambient.addChild(bg, veil, veil2, center)
+    center.graphics.beginFill('rgba(15,23,42,0.88)').drawCircle(W / 2, H / 2, 118)
+    this.ambient.addChild(bg, veil, ring, center)
   }
 
   private buildAmbientParticles(): void {
-    for (let i = 0; i < 36; i++) {
+    for (let i = 0; i < 30; i++) {
       const shape = new Shape()
-      const r = 1.2 + Math.random() * 2.2
+      const r = 1.2 + Math.random() * 2
       shape.graphics.beginFill(i % 3 === 0 ? '#38bdf8' : '#94a3b8').drawCircle(0, 0, r)
-      shape.alpha = 0.15 + Math.random() * 0.35
+      shape.alpha = 0.12 + Math.random() * 0.3
       shape.x = Math.random() * W
       shape.y = Math.random() * H
       this.ambient.addChild(shape)
       this.particles.push({
         shape,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: -0.05 - Math.random() * 0.2,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: -0.04 - Math.random() * 0.18,
       })
     }
   }
@@ -297,49 +350,66 @@ export class BoardStage {
     }
   }
 
-  private buildSquares(): void {
-    BOARD.forEach((sq, i) => {
-      const c = this.centers[i]!
-      const node = new Container()
+  private buildRatTrack(): void {
+    RAT_RACE.forEach((sq, i) => {
+      const c = this.ratCenters[i]!
+      const node = this.makeSquare(sq.kind, INNER_CELL, true)
       node.x = c.x
       node.y = c.y
-
-      const glow = new Shape()
-      glow.graphics.beginStroke('#fbbf24').setStrokeStyle(3).drawRoundRect(-CELL / 2, -CELL / 2, CELL - 2, CELL - 2, 12)
-      glow.visible = false
-      glow.shadow = new Shadow('#fbbf24', 0, 0, 16)
-      this.glowNodes[i] = glow
-
-      const body = new Shape()
-      body.graphics
-        .beginFill(squareColor(sq.kind))
-        .drawRoundRect(-CELL / 2 + 3, -CELL / 2 + 3, CELL - 6, CELL - 6, 10)
-
-      const icon = new Shape()
-      drawIcon(icon.graphics, sq.kind, 13)
-      icon.y = -10
-
-      const label = new Text(SHORT_LABEL[sq.kind], '700 11px Segoe UI, system-ui, sans-serif', '#fff')
-      label.textAlign = 'center'
-      label.textBaseline = 'middle'
-      label.y = 18
-
-      node.addChild(glow, body, icon, label)
-      this.board.addChild(node)
-      this.squareNodes[i] = node
+      const glow = node.children[0] as Shape
+      this.ratGlow[i] = glow
+      this.innerBoard.addChild(node)
+      this.ratNodes[i] = node
     })
+  }
+
+  private buildOuterTrack(): void {
+    FAST_TRACK.forEach((sq, i) => {
+      const c = this.outerCenters[i]!
+      const node = this.makeSquare(sq.kind, OUTER_CELL, false)
+      node.x = c.x
+      node.y = c.y
+      const glow = node.children[0] as Shape
+      this.outerGlow[i] = glow
+      this.outerBoard.addChild(node)
+      this.outerNodes[i] = node
+    })
+  }
+
+  private makeSquare(kind: (typeof RAT_RACE)[0]['kind'], cell: number, small: boolean): Container {
+    const node = new Container()
+    const half = cell / 2
+    const glow = new Shape()
+    glow.graphics.beginStroke('#fbbf24').setStrokeStyle(2.5).drawRoundRect(-half, -half, cell - 2, cell - 2, 10)
+    glow.visible = false
+    glow.shadow = new Shadow('#fbbf24', 0, 0, 12)
+
+    const body = new Shape()
+    body.graphics.beginFill(squareColor(kind)).drawRoundRect(-half + 2, -half + 2, cell - 6, cell - 6, 8)
+
+    const icon = new Shape()
+    drawIcon(icon.graphics, kind, small ? 10 : 11)
+    icon.y = -8
+
+    const label = new Text(SHORT_LABEL[kind], `700 ${small ? 9 : 10}px Segoe UI, system-ui, sans-serif`, '#fff')
+    label.textAlign = 'center'
+    label.textBaseline = 'middle'
+    label.y = 14
+
+    node.addChild(glow, body, icon, label)
+    return node
   }
 
   private buildToken(): Container {
     const token = new Container()
     const ring = new Shape()
-    ring.graphics.beginFill('#fbbf24').drawCircle(0, 0, 13)
-    ring.graphics.beginStroke('#78350f').setStrokeStyle(2).drawCircle(0, 0, 13)
-    const label = new Text('TÚ', '700 10px Segoe UI, system-ui, sans-serif', '#78350f')
+    ring.graphics.beginFill('#fbbf24').drawCircle(0, 0, 11)
+    ring.graphics.beginStroke('#78350f').setStrokeStyle(2).drawCircle(0, 0, 11)
+    const label = new Text('TÚ', '700 9px Segoe UI, system-ui, sans-serif', '#78350f')
     label.textAlign = 'center'
     label.textBaseline = 'middle'
     token.addChild(ring, label)
-    token.shadow = new Shadow('rgba(251,191,36,0.55)', 0, 0, 12)
+    token.shadow = new Shadow('rgba(251,191,36,0.55)', 0, 0, 10)
     return token
   }
 }

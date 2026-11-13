@@ -25,6 +25,11 @@ export function Statement({ player, phase }: { player: PlayerState; phase: Phase
         <p className="muted">
           {player.career.title}
           {player.children > 0 ? ` · ${player.children} hijo${player.children === 1 ? '' : 's'}` : ''}
+          {' · '}
+          {player.track === 'fast_track' ? 'Fast Track' : 'Carrera de la Rata'}
+        </p>
+        <p className="muted">
+          Sueño: {player.dream.title} ({money(player.dream.cost)})
         </p>
       </header>
 
@@ -50,9 +55,11 @@ export function Statement({ player, phase }: { player: PlayerState; phase: Phase
           </div>
         </div>
         <p className={`goal-status ${wonReady ? 'good-text' : ''}`}>
-          {wonReady
-            ? 'Meta cubierta: ya saliste del circuito.'
-            : `Faltan ${money(gap)}/mes de ingreso pasivo para ganar.`}
+          {player.track === 'fast_track'
+            ? `Fast Track · sueño ${player.dream.title} (${money(player.dream.cost)}). Efectivo: ${money(player.cash)}.`
+            : wonReady
+              ? 'Pasivo ≥ gastos: en el próximo cierre sales al Fast Track.'
+              : `Faltan ${money(gap)}/mes de pasivo para salir de la Carrera de la Rata.`}
         </p>
         <div className="progress-bar" aria-hidden>
           <div className="progress-fill" style={{ width: `${Math.min(100, ratio * 100)}%` }} />

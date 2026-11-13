@@ -7,8 +7,12 @@ export type SquareKind =
   | 'downsized'
   | 'baby'
   | 'start'
+  | 'cashflow_day'
+  | 'dream'
 
 export type DealKind = 'small' | 'big'
+
+export type Track = 'rat_race' | 'fast_track'
 
 export interface Career {
   id: string
@@ -67,10 +71,15 @@ export interface MarketCard {
   id: string
   title: string
   description: string
-  /** Matches asset name substring or kind */
   match: { kind?: Asset['kind']; nameIncludes?: string }
   sellPrice: number
   perShare?: boolean
+}
+
+export interface Dream {
+  id: string
+  title: string
+  cost: number
 }
 
 export type Phase =
@@ -79,6 +88,7 @@ export type Phase =
   | 'deal'
   | 'doodad'
   | 'market'
+  | 'end_turn'
   | 'won'
 
 export interface LogEntry {
@@ -95,6 +105,8 @@ export interface PlayerState {
   assets: Asset[]
   liabilities: Liability[]
   charityTurnsLeft: number
+  track: Track
+  dream: Dream
 }
 
 export interface GameState {
@@ -106,4 +118,5 @@ export interface GameState {
   pendingMarket: MarketCard | null
   log: LogEntry[]
   turn: number
+  justEscaped: boolean
 }

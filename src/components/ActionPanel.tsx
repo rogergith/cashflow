@@ -13,6 +13,8 @@ interface Actions {
   onSellMarket: () => void
   onSkipMarket: () => void
   onLoan: () => void
+  onRepay: () => void
+  onEndTurn: () => void
   onReset: () => void
 }
 
@@ -30,7 +32,7 @@ export function ActionPanel({
       <section className="panel actions">
         <h2>1 · Elige profesión</h2>
         <p className="muted">
-          Mira el <strong>sobrante mensual</strong>: es lo que te queda después de gastos fijos. Más sobrante = más fácil al inicio.
+          Entras a la <strong>Carrera de la Rata</strong>. Saldrás cuando el ingreso pasivo cubra tus gastos.
         </p>
         <div className="career-grid">
           {CAREERS.map((c) => {
@@ -59,14 +61,43 @@ export function ActionPanel({
     )
   }
 
-  if (state.phase === 'won') {
+  if (state.phase === 'won' && state.player) {
     return (
       <section className="panel actions win">
         <h2>Victoria</h2>
-        <p>Tu ingreso pasivo cubre los gastos. Saliste del circuito laboral.</p>
+        <p>
+          Saliste de la rata y lograste tu sueño: <strong>{state.player.dream.title}</strong>.
+        </p>
         <button type="button" className="btn primary btn-lg pulse" onClick={actions.onReset}>
           Jugar de nuevo
         </button>
+      </section>
+    )
+  }
+
+  if (state.phase === 'end_turn' && state.player) {
+    const onFast = state.player.track === 'fast_track'
+    return (
+      <section className="panel actions highlight-panel">
+        <p className={`phase-badge ${onFast ? '' : 'warn-badge'}`}>
+          {state.justEscaped ? '¡Escapaste de la rata!' : 'Fin de turno'}
+        </p>
+        <h2>{onFast ? 'Fast Track' : 'Carrera de la Rata'}</h2>
+        <p className="muted">
+          Revisa tu estado financiero. Puedes pedir o pagar un préstamo antes de cerrar.
+          {onFast ? ` Sueño: ${state.player.dream.title} (${money(state.player.dream.cost)}).` : ''}
+        </p>
+        <div className="btn-row">
+          <button type="button" className="btn" onClick={actions.onLoan}>
+            Pedir +$1,000
+          </button>
+          <button type="button" className="btn" onClick={actions.onRepay}>
+            Pagar préstamo
+          </button>
+          <button type="button" className="btn primary btn-lg pulse" onClick={actions.onEndTurn} autoFocus>
+            Terminar turno
+          </button>
+        </div>
       </section>
     )
   }
@@ -80,6 +111,7 @@ export function ActionPanel({
     const afterPassive = passiveIncome(state.player) + d.asset.cashflow
     const expenses = totalExpenses(state.player)
     const afterGap = Math.max(0, expenses - afterPassive)
+    const onFast = state.player.track === 'fast_track'
 
     return (
       <section className="panel actions highlight-panel">
@@ -89,11 +121,11 @@ export function ActionPanel({
 
         <div className="fact-cards">
           <div className="fact">
-            <span>Enganche (pagas ahora)</span>
+            <span>Enganche</span>
             <strong>{money(need)}</strong>
           </div>
           <div className="fact">
-            <span>Ingreso pasivo nuevo</span>
+            <span>Ingreso pasivo</span>
             <strong className="good-text">+{money(d.asset.cashflow)}/mes</strong>
           </div>
           <div className="fact">
@@ -101,20 +133,19 @@ export function ActionPanel({
             <strong className={can ? 'good-text' : 'danger-text'}>{money(state.player.cash)}</strong>
           </div>
           <div className="fact">
-            <span>Tras comprar, te faltaría</span>
-            <strong>{money(afterGap)}/mes para ganar</strong>
+            <span>{onFast ? 'Tras comprar' : 'Para salir de la rata'}</span>
+            <strong>
+              {onFast ? `sueño ${money(state.player.dream.cost)}` : `faltan ${money(afterGap)}/mes`}
+            </strong>
           </div>
         </div>
 
         {!can ? (
           <p className="inline-tip warn-tip">
-            Te faltan {money(shortfall)}. Puedes pedir {loansNeeded} préstamo(s): cada uno suma $1,000 de
-            efectivo y +$100/mes de gasto.
+            Te faltan {money(shortfall)}. Puedes pedir {loansNeeded} préstamo(s) de $1,000 (+$100/mes c/u).
           </p>
         ) : (
-          <p className="inline-tip">
-            Tip: compra si el flujo es &gt; 0 y te acerca a la meta. Pasa si el enganche te deja sin colchón.
-          </p>
+          <p className="inline-tip">Compra si el flujo te acerca a la meta. Pasa si te quedas sin colchón.</p>
         )}
 
         <div className="btn-row">
@@ -123,18 +154,12 @@ export function ActionPanel({
             className={`btn primary btn-lg ${can ? 'pulse' : ''}`}
             onClick={actions.onAcceptDeal}
             disabled={!can}
-            title={can ? 'Comprar activo' : 'No te alcanza el enganche'}
           >
             {can ? 'Sí, comprar' : 'No te alcanza'}
           </button>
           {!can ? (
-            <button
-              type="button"
-              className="btn"
-              onClick={actions.onLoan}
-              title="Sumas $1,000 a tu efectivo. Pagas $100 extra cada mes."
-            >
-              Pedir +$1,000 (cuesta $100/mes)
+            <button type="button" className="btn" onClick={actions.onLoan}>
+              Pedir +$1,000
             </button>
           ) : null}
           <button type="button" className="btn" onClick={actions.onDeclineDeal}>
@@ -149,7 +174,7 @@ export function ActionPanel({
     const d = state.pendingDoodad
     return (
       <section className="panel actions highlight-panel">
-        <p className="phase-badge warn-badge">Gasto inesperado</p>
+        <p className="phase-badge warn-badge">Gasto</p>
         <h2>{d.title}</h2>
         <p>{d.description}</p>
         <p className="cost">−{money(d.cost)}</p>
@@ -167,9 +192,6 @@ export function ActionPanel({
         <p className="phase-badge market-badge">Mercado</p>
         <h2>{m.title}</h2>
         <p>{m.description}</p>
-        <p className="inline-tip">
-          Solo vende si tienes ese activo. Si no lo tienes, elige “No vender”.
-        </p>
         <div className="btn-row">
           <button type="button" className="btn primary btn-lg pulse" onClick={actions.onSellMarket}>
             Vender si lo tengo
@@ -183,17 +205,22 @@ export function ActionPanel({
   }
 
   const charity = state.player?.charityTurnsLeft ?? 0
+  const onFast = state.player?.track === 'fast_track'
 
   return (
     <section className="panel actions highlight-panel">
-      <p className="phase-badge">Tu turno · #{state.turn || 1}</p>
+      <p className="phase-badge">
+        {onFast ? 'Fast Track' : 'Carrera de la Rata'} · turno #{state.turn || 1}
+      </p>
       <h2>{animating ? 'Moviendo ficha…' : 'Tira el dado'}</h2>
       <p className="muted">
         {animating
-          ? 'Espera a que la ficha termine de saltar por el tablero.'
-          : 'Avanzas por el tablero. Las casillas verdes te pagan; las azules ofrecen activos.'}
+          ? 'Espera a que la ficha termine de saltar.'
+          : onFast
+            ? `Persigue tu sueño (${state.player?.dream.title}). Casillas doradas = Sueño.`
+            : 'Circuito interior: deals azules suben tu pasivo hasta salir de la rata.'}
         {!animating && charity > 0
-          ? ` Caridad activa: dado 1–12 (${charity} turno${charity === 1 ? '' : 's'}).`
+          ? ` Caridad: dado 1–12 (${charity} turno${charity === 1 ? '' : 's'}).`
           : ''}
       </p>
       <div className="btn-row">
@@ -206,20 +233,11 @@ export function ActionPanel({
         >
           {animating ? 'Animando…' : 'Tirar dado'}
         </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={actions.onLoan}
-          disabled={animating}
-          title="Efectivo +$1,000 ahora. Gastos +$100 cada mes (10% de interés)."
-        >
-          Préstamo +$1,000 (interés $100/mes)
-        </button>
         <button type="button" className="btn ghost" onClick={actions.onReset}>
           Reiniciar
         </button>
       </div>
-      <p className="hint-keys">Atajo: barra espaciadora o Enter para tirar</p>
+      <p className="hint-keys">Espacio / Enter para tirar</p>
     </section>
   )
 }
